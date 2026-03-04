@@ -19,6 +19,10 @@ void OfflineTtsVitsModelConfig::Register(ParseOptions *po) {
   po->Register("vits-data-dir", &data_dir,
                "Path to the directory containing dict for espeak-ng. If it is "
                "given, --vits-lexicon is ignored.");
+  po->Register("vits-phoneme-type", &phoneme_type,
+               "For Piper models: 'espeak' (default) or 'text'. Use 'text' for "
+               "Ukrainian and other models with phoneme_type:text (Cyrillic "
+               "tokens). When 'text', --vits-data-dir is not required.");
   po->Register("vits-dict-dir", &dict_dir,
                "Not used. You don't need to provide a value for it");
   po->Register("vits-noise-scale", &noise_scale, "noise_scale for VITS models");
@@ -49,7 +53,7 @@ bool OfflineTtsVitsModelConfig::Validate() const {
     return false;
   }
 
-  if (!data_dir.empty()) {
+  if (!data_dir.empty() && phoneme_type != "text") {
     if (!FileExists(data_dir + "/phontab")) {
       SHERPA_ONNX_LOGE(
           "'%s/phontab' does not exist. Please check --vits-data-dir",
@@ -96,6 +100,7 @@ std::string OfflineTtsVitsModelConfig::ToString() const {
   os << "lexicon=\"" << lexicon << "\", ";
   os << "tokens=\"" << tokens << "\", ";
   os << "data_dir=\"" << data_dir << "\", ";
+  os << "phoneme_type=\"" << phoneme_type << "\", ";
   os << "noise_scale=" << noise_scale << ", ";
   os << "noise_scale_w=" << noise_scale_w << ", ";
   os << "length_scale=" << length_scale << ")";

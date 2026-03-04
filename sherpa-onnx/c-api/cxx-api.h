@@ -415,6 +415,7 @@ struct OfflineTtsVitsModelConfig {
   std::string lexicon;
   std::string tokens;
   std::string data_dir;
+  std::string phoneme_type = "espeak";  // "espeak" or "text" for Ukrainian etc.
   std::string dict_dir;  // unused
 
   float noise_scale = 0.667;

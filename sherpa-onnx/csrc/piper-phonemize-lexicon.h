@@ -20,7 +20,8 @@ namespace sherpa_onnx {
 class PiperPhonemizeLexicon : public OfflineTtsFrontend {
  public:
   PiperPhonemizeLexicon(const std::string &tokens, const std::string &data_dir,
-                        const OfflineTtsVitsModelMetaData &vits_meta_data);
+                        const OfflineTtsVitsModelMetaData &vits_meta_data,
+                        const std::string &phoneme_type = "espeak");
 
   PiperPhonemizeLexicon(const std::string &tokens, const std::string &data_dir,
                         const OfflineTtsMatchaModelMetaData &matcha_meta_data);
@@ -34,7 +35,8 @@ class PiperPhonemizeLexicon : public OfflineTtsFrontend {
   template <typename Manager>
   PiperPhonemizeLexicon(Manager *mgr, const std::string &tokens,
                         const std::string &data_dir,
-                        const OfflineTtsVitsModelMetaData &vits_meta_data);
+                        const OfflineTtsVitsModelMetaData &vits_meta_data,
+                        const std::string &phoneme_type = "espeak");
 
   template <typename Manager>
   PiperPhonemizeLexicon(Manager *mgr, const std::string &tokens,
@@ -58,6 +60,9 @@ class PiperPhonemizeLexicon : public OfflineTtsFrontend {
   std::vector<TokenIDs> ConvertTextToTokenIdsVits(
       const std::string &text, const std::string &voice = "") const;
 
+  std::vector<TokenIDs> ConvertTextToTokenIdsVitsCodepoints(
+      const std::string &text) const;
+
   std::vector<TokenIDs> ConvertTextToTokenIdsMatcha(
       const std::string &text, const std::string &voice = "") const;
 
@@ -71,6 +76,7 @@ class PiperPhonemizeLexicon : public OfflineTtsFrontend {
   bool is_matcha_ = false;
   bool is_kokoro_ = false;
   bool is_kitten_ = false;
+  bool use_codepoint_phonemes_ = false;  // phoneme_type "text" for Piper
 };
 
 }  // namespace sherpa_onnx

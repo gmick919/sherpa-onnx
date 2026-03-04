@@ -420,6 +420,7 @@ OfflineTts OfflineTts::Create(const OfflineTtsConfig &config) {
   c.model.vits.lexicon = config.model.vits.lexicon.c_str();
   c.model.vits.tokens = config.model.vits.tokens.c_str();
   c.model.vits.data_dir = config.model.vits.data_dir.c_str();
+  c.model.vits.phoneme_type = config.model.vits.phoneme_type.c_str();
   c.model.vits.noise_scale = config.model.vits.noise_scale;
   c.model.vits.noise_scale_w = config.model.vits.noise_scale_w;
   c.model.vits.length_scale = config.model.vits.length_scale;

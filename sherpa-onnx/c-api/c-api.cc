@@ -1335,6 +1335,8 @@ static sherpa_onnx::OfflineTtsConfig GetOfflineTtsConfig(
   tts_config.model.vits.tokens = SHERPA_ONNX_OR(config->model.vits.tokens, "");
   tts_config.model.vits.data_dir =
       SHERPA_ONNX_OR(config->model.vits.data_dir, "");
+  tts_config.model.vits.phoneme_type =
+      SHERPA_ONNX_OR(config->model.vits.phoneme_type, "espeak");
   tts_config.model.vits.noise_scale =
       SHERPA_ONNX_OR(config->model.vits.noise_scale, 0.667);
   tts_config.model.vits.noise_scale_w =

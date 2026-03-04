@@ -20,6 +20,11 @@ struct OfflineTtsVitsModelConfig {
   // data_dir is for piper-phonemize, which uses espeak-ng
   std::string data_dir;
 
+  // For Piper VITS models: "espeak" (default) uses espeak-ng for phonemization;
+  // "text" uses character codepoints directly (for Ukrainian and other
+  // phoneme_type:text models). When "text", data_dir is not required.
+  std::string phoneme_type = "espeak";
+
   // Used for Chinese TTS models using jieba
   std::string dict_dir;
 

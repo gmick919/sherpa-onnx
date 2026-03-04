@@ -26,7 +26,25 @@
 #include "espeak-ng/speak_lib.h"
 #include "phoneme_ids.hpp"  // NOLINT
 #include "phonemize.hpp"    // NOLINT
+#include <algorithm>
+#include <cctype>
+
 #include "sherpa-onnx/csrc/file-utils.h"
+
+// Cyrillic uppercase (U+0410-U+042F) -> lowercase (+0x20)
+static char32_t ToLowerCyrillic(char32_t c) {
+  if (c >= 0x0410 && c <= 0x042F) {
+    return c + 0x20;
+  }
+  // Є U+0404 -> є U+0454, І U+0406 -> і U+0456, Ї U+0407 -> ї U+0457,
+  // Ё U+0401 -> ё U+0451, Й U+0419 -> й U+0439 (same +0x20)
+  if (c == 0x0404) return 0x0454;  // Є -> є
+  if (c == 0x0406) return 0x0456;  // І -> і
+  if (c == 0x0407) return 0x0457;  // Ї -> ї
+  if (c == 0x0401) return 0x0451;  // Ё -> ё
+  return c;
+}
+
 #include "sherpa-onnx/csrc/macros.h"
 #include "sherpa-onnx/csrc/text-utils.h"
 
@@ -148,6 +166,79 @@ static std::vector<int64_t> PiperPhonemesToIdsVits(
   ans.push_back(eos);
 
   return ans;
+}
+
+// For Piper models with phoneme_type "text" (e.g., Ukrainian): use character
+// codepoints as phonemes. Each character maps to itself; tokens.txt contains
+// Cyrillic letters. See Piper JSON config "phoneme_type": "text".
+static std::vector<int64_t> TextToIdsVitsCodepoints(
+    const std::unordered_map<char32_t, int32_t> &token2id,
+    const std::u32string &text) {
+  int32_t pad = token2id.at(U'_');
+  int32_t bos = token2id.at(U'^');
+  int32_t eos = token2id.at(U'$');
+
+  std::vector<int64_t> ans;
+  ans.reserve(text.size() * 2 + 3);
+  ans.push_back(bos);
+
+  for (char32_t c : text) {
+    if (token2id.count(c)) {
+      ans.push_back(token2id.at(c));
+      ans.push_back(pad);
+    }
+    // Skip unknown characters (e.g., unsupported punctuation)
+  }
+  ans.push_back(eos);
+  return ans;
+}
+
+static std::vector<TokenIDs> PiperPhonemesToIdsVitsCodepoints(
+    const std::unordered_map<char32_t, int32_t> &token2id,
+    const std::string &text) {
+  std::u32string s = Utf8ToUtf32(text);
+
+  // Lowercase for case-insensitive token lookup (Ukrainian tokens are
+  // lowercase). Use Cyrillic-aware lowercasing.
+  for (char32_t &c : s) {
+    if (c >= 0x41 && c <= 0x5A) {
+      c = c + 0x20;  // ASCII A-Z -> a-z
+    } else {
+      c = ToLowerCyrillic(c);
+    }
+  }
+
+  std::vector<TokenIDs> ans;
+  std::u32string current_sentence;
+
+  auto flush_sentence = [&]() {
+    if (!current_sentence.empty()) {
+      ans.emplace_back(
+          TextToIdsVitsCodepoints(token2id, current_sentence));
+      current_sentence.clear();
+    }
+  };
+
+  for (size_t i = 0; i < s.size(); ++i) {
+    char32_t c = s[i];
+    if (c == U'.' || c == U'!' || c == U'?' || c == U';' || c == U':') {
+      flush_sentence();
+    } else if (token2id.count(c) || c == U' ' || c == U',' || c == U'-' ||
+               c == U'\'') {
+      current_sentence.push_back(c);
+    }
+  }
+  flush_sentence();
+
+  if (ans.empty()) {
+    ans.emplace_back(TextToIdsVitsCodepoints(token2id, std::u32string()));
+  }
+  return ans;
+}
+
+std::vector<TokenIDs> PiperPhonemizeLexicon::ConvertTextToTokenIdsVitsCodepoints(
+    const std::string &text) const {
+  return PiperPhonemesToIdsVitsCodepoints(token2id_, text);
 }
 
 static std::vector<std::vector<int64_t>> PiperPhonemesToIdsMatcha(
@@ -328,31 +419,39 @@ void InitEspeak(const std::string &data_dir) {
 
 PiperPhonemizeLexicon::PiperPhonemizeLexicon(
     const std::string &tokens, const std::string &data_dir,
-    const OfflineTtsVitsModelMetaData &vits_meta_data)
-    : vits_meta_data_(vits_meta_data) {
+    const OfflineTtsVitsModelMetaData &vits_meta_data,
+    const std::string &phoneme_type)
+    : vits_meta_data_(vits_meta_data),
+      use_codepoint_phonemes_(phoneme_type == "text") {
   {
     std::ifstream is(tokens);
     token2id_ = ReadTokens(is);
   }
 
-  InitEspeak(data_dir);
+  if (!use_codepoint_phonemes_) {
+    InitEspeak(data_dir);
+  }
 }
 
 template <typename Manager>
 PiperPhonemizeLexicon::PiperPhonemizeLexicon(
     Manager *mgr, const std::string &tokens, const std::string &data_dir,
-    const OfflineTtsVitsModelMetaData &vits_meta_data)
-    : vits_meta_data_(vits_meta_data) {
+    const OfflineTtsVitsModelMetaData &vits_meta_data,
+    const std::string &phoneme_type)
+    : vits_meta_data_(vits_meta_data),
+      use_codepoint_phonemes_(phoneme_type == "text") {
   {
     auto buf = ReadFile(mgr, tokens);
     std::istringstream is(std::string(buf.data(), buf.size()));
     token2id_ = ReadTokens(is);
   }
 
-  // We should copy the directory of espeak-ng-data from the asset to
-  // some internal or external storage and then pass the directory to
-  // data_dir.
-  InitEspeak(data_dir);
+  if (!use_codepoint_phonemes_) {
+    // We should copy the directory of espeak-ng-data from the asset to
+    // some internal or external storage and then pass the directory to
+    // data_dir.
+    InitEspeak(data_dir);
+  }
 }
 
 PiperPhonemizeLexicon::PiperPhonemizeLexicon(
@@ -513,6 +612,10 @@ std::vector<TokenIDs> ConvertTextToTokenIdsKokoroOrKitten(
 
 std::vector<TokenIDs> PiperPhonemizeLexicon::ConvertTextToTokenIdsVits(
     const std::string &text, const std::string &voice /*= ""*/) const {
+  if (use_codepoint_phonemes_) {
+    return ConvertTextToTokenIdsVitsCodepoints(text);
+  }
+
   piper::eSpeakPhonemeConfig config;
 
   // ./bin/espeak-ng-bin --path  ./install/share/espeak-ng-data/ --voices

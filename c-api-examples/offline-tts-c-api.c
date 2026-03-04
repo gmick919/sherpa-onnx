@@ -87,6 +87,13 @@ static struct cag_option options[] = {
      .identifier = 'd',
      .description =
          "Path to espeak-ng-data. If it is given, --vits-lexicon is ignored"},
+    {.access_name = "vits-phoneme-type",
+     .value_name = "espeak",
+     .identifier = 'e',
+     .description =
+         "For Piper models: 'espeak' (default) or 'text'. Use 'text' for "
+         "Ukrainian and other models with Cyrillic tokens (phoneme_type:text). "
+         "When 'text', --vits-data-dir is not required."},
 
 };
 
@@ -195,6 +202,9 @@ int32_t main(int32_t argc, char *argv[]) {
       case 'd':
         config.model.vits.data_dir = value;
         break;
+      case 'e':
+        config.model.vits.phoneme_type = value;
+        break;
       case '?':
         fprintf(stderr, "Unknown option\n");
         // fall through
@@ -204,7 +214,6 @@ int32_t main(int32_t argc, char *argv[]) {
         ShowUsage();
     }
   }
-  fprintf(stderr, "here\n");
 
   if (!config.model.vits.model) {
     fprintf(stderr, "Please provide --vits-model\n");
@@ -216,7 +225,9 @@ int32_t main(int32_t argc, char *argv[]) {
     ShowUsage();
   }
 
-  if (!config.model.vits.data_dir && !config.model.vits.lexicon) {
+  if (!config.model.vits.data_dir && !config.model.vits.lexicon &&
+      (!config.model.vits.phoneme_type ||
+       strcmp(config.model.vits.phoneme_type, "text") != 0)) {
     fprintf(stderr, "Please provide --vits-data-dir or --vits-lexicon\n");
     ShowUsage();
   }

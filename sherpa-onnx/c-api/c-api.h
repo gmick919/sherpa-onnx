@@ -1084,6 +1084,7 @@ SHERPA_ONNX_API typedef struct SherpaOnnxOfflineTtsVitsModelConfig {
   const char *lexicon;
   const char *tokens;
   const char *data_dir;
+  const char *phoneme_type;  // "espeak" (default) or "text" for Ukrainian etc.
 
   float noise_scale;
   float noise_scale_w;
