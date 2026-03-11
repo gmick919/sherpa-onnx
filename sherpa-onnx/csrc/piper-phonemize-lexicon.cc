@@ -45,6 +45,50 @@ static char32_t ToLowerCyrillic(char32_t c) {
   return c;
 }
 
+// Normalize Ukrainian for Piper phoneme_type=text models.
+// 1) Compose decomposed і+̈ -> ї so we have a single char to process.
+// 2) For ї: use precomposed if in token2id, else expand to і+̈ (decomposed).
+//    Supports both model formats (precomposed vs decomposed training).
+static void NormalizeUkrainianForPiper(
+    std::u32string *s,
+    const std::unordered_map<char32_t, int32_t> &token2id) {
+  std::u32string composed;
+  composed.reserve(s->size());
+  for (size_t i = 0; i < s->size(); ++i) {
+    char32_t c = (*s)[i];
+    if (i + 1 < s->size()) {
+      char32_t next = (*s)[i + 1];
+      if (next == 0x0308) {  // combining diaeresis ̈
+        if (c == 0x0456) {   // і + ̈ -> ї (U+0457)
+          composed.push_back(0x0457);
+          ++i;
+          continue;
+        }
+      }
+    }
+    composed.push_back(c);
+  }
+  // ї: prefer decomposed (і+̈) when model has both tokens—some models train on
+  // that form. Otherwise use precomposed if present.
+  std::u32string out;
+  out.reserve(composed.size() * 2);
+  for (char32_t c : composed) {
+    if (c == 0x0457) {  // ї
+      if (token2id.count(0x0456) && token2id.count(0x0308)) {
+        out.push_back(0x0456);
+        out.push_back(0x0308);
+      } else if (token2id.count(0x0457)) {
+        out.push_back(0x0457);
+      } else {
+        out.push_back(0x0457);
+      }
+    } else {
+      out.push_back(c);
+    }
+  }
+  *s = std::move(out);
+}
+
 #include "sherpa-onnx/csrc/macros.h"
 #include "sherpa-onnx/csrc/text-utils.h"
 
@@ -198,6 +242,8 @@ static std::vector<TokenIDs> PiperPhonemesToIdsVitsCodepoints(
     const std::string &text) {
   std::u32string s = Utf8ToUtf32(text);
 
+  NormalizeUkrainianForPiper(&s, token2id);
+
   // Lowercase for case-insensitive token lookup (Ukrainian tokens are
   // lowercase). Use Cyrillic-aware lowercasing.
   for (char32_t &c : s) {
@@ -226,6 +272,10 @@ static std::vector<TokenIDs> PiperPhonemesToIdsVitsCodepoints(
     } else if (token2id.count(c) || c == U' ' || c == U',' || c == U'-' ||
                c == U'\'') {
       current_sentence.push_back(c);
+    } else {
+      SHERPA_ONNX_LOGE(
+          "Skip unknown char in codepoint phonemization: U+%04X ('%s')",
+          static_cast<uint32_t>(c), ToString(c).c_str());
     }
   }
   flush_sentence();
