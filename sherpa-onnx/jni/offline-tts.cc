@@ -137,6 +137,9 @@ static OfflineTtsConfig GetOfflineTtsConfig(JNIEnv *env, jobject config,
 
   SHERPA_ONNX_JNI_READ_STRING(ans.model.vits.data_dir, dataDir, vits_cls, vits);
 
+  SHERPA_ONNX_JNI_READ_STRING(ans.model.vits.phoneme_type, phonemeType,
+                              vits_cls, vits);
+
   SHERPA_ONNX_JNI_READ_FLOAT(ans.model.vits.noise_scale, noiseScale, vits_cls,
                              vits);
 

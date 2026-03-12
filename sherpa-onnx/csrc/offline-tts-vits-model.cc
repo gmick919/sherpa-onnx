@@ -154,17 +154,22 @@ class OfflineTtsVitsModel::Impl {
     }
 
     Ort::AllocatorWithDefaultOptions allocator;  // used in the macro below
-    SHERPA_ONNX_READ_META_DATA(meta_data_.sample_rate, "sample_rate");
+    // Piper models from rhasspy/piper-voices may lack embedded metadata; use
+    // default 22050 (standard Piper sample rate) when missing.
+    SHERPA_ONNX_READ_META_DATA_WITH_DEFAULT(meta_data_.sample_rate,
+                                            "sample_rate", 22050);
     SHERPA_ONNX_READ_META_DATA_WITH_DEFAULT(meta_data_.add_blank, "add_blank",
                                             0);
 
     SHERPA_ONNX_READ_META_DATA_WITH_DEFAULT(meta_data_.speaker_id, "speaker_id",
                                             0);
     SHERPA_ONNX_READ_META_DATA_WITH_DEFAULT(meta_data_.version, "version", 0);
-    SHERPA_ONNX_READ_META_DATA(meta_data_.num_speakers, "n_speakers");
+    SHERPA_ONNX_READ_META_DATA_WITH_DEFAULT(meta_data_.num_speakers,
+                                            "n_speakers", 1);
     SHERPA_ONNX_READ_META_DATA_STR_WITH_DEFAULT(meta_data_.punctuations,
                                                 "punctuation", "");
-    SHERPA_ONNX_READ_META_DATA_STR(meta_data_.language, "language");
+    SHERPA_ONNX_READ_META_DATA_STR_WITH_DEFAULT(meta_data_.language,
+                                                "language", "");
 
     SHERPA_ONNX_READ_META_DATA_STR_WITH_DEFAULT(meta_data_.voice, "voice", "");
 
@@ -180,7 +185,7 @@ class OfflineTtsVitsModel::Impl {
     SHERPA_ONNX_READ_META_DATA_WITH_DEFAULT(meta_data_.pad_id, "pad_id", 0);
 
     std::string comment;
-    SHERPA_ONNX_READ_META_DATA_STR(comment, "comment");
+    SHERPA_ONNX_READ_META_DATA_STR_WITH_DEFAULT(comment, "comment", "piper");
 
     if (comment.find("piper") != std::string::npos) {
       meta_data_.is_piper = true;
