@@ -37,6 +37,7 @@ decode-file
 *.dylib
 tokens.txt
 *.onnx
+*.onnx.json
 log.txt
 tags
 run-decode-file-python.sh
@@ -176,3 +177,5 @@ sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17
 sherpa-onnx-fire-red-asr2-ctc-zh_en-int8-2026-02-25
 non-streaming-fire-red-asr-ctc-decode-files
 sherpa-onnx-moonshine-*-quantized-2026-02-27
+build_shared
+build_static
